@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project basedir="." default="jar" name="AsteroidsWebService">
+    <property environment="env"/>
+    <property name="debuglevel" value="source,lines,vars"/>
+    <property name="target" value="1.6"/>
+    <property name="source" value="1.6"/>
+	
+	<!-- Full path to CS496_Jetty project. -->
+	<property name="jetty.dir" value="/home/dhovemey/work/workspace/CS496_Jetty"/>
+	
+	<!-- Name of the deployable jarfile to run the webapp. -->
+	<property name="jarname" value="AsteroidsWebService.jar" />
+
+	<path id="AsteroidsWebService.classpath">
+        <pathelement location="bin"/>
+		<fileset dir="./lib" includes="**/*.jar"/>
+    </path>
+    
+	<target name="init">
+        <mkdir dir="bin"/>
+        <copy includeemptydirs="false" todir="bin">
+            <fileset dir="src">
+                <exclude name="**/*.launch"/>
+                <exclude name="**/*.java"/>
+            </fileset>
+        </copy>
+    </target>
+	
+    <target name="build" depends="init">
+        <echo message="${ant.project.name}: ${ant.file}"/>
+    	<mkdir dir="war/WEB-INF/classes"/>
+        <javac debug="true" debuglevel="${debuglevel}" destdir="war/WEB-INF/classes" source="${source}" target="${target}">
+            <src path="src"/>
+            <classpath refid="AsteroidsWebService.classpath"/>
+        </javac>
+    	<mkdir dir="bin"/>
+        <javac debug="true" debuglevel="${debuglevel}" destdir="bin" source="${source}" target="${target}">
+            <src path="main"/>
+            <classpath refid="AsteroidsWebService.classpath"/>
+        </javac>
+    </target>
+	
+	<!--
+		Combine all of the Jetty jarfiles into a single jarfile.
+	-->
+	<target name="jettyDeps">
+		<jar destfile="lib/jettyDeps.jar">
+			<zipgroupfileset dir="${jetty.dir}/lib" includes="**/*.jar" excludes="**/*taglibs*.jar"/>
+		</jar>
+	</target>
+	
+	<!--
+		Target to build a single deployable jarfile containing both
+		the webapp (and required libraries) and Jetty (the web server).
+	-->
+	<target name="jar" depends="build,jettyDeps">
+		<!--
+			Build single deployable jarfile containing our launcher code,
+			all requried libraries, and the webapp.  Note that signatures
+			must be removed from the libraries.
+		-->
+		<jar destfile="${jarname}" update="true">
+			<!-- Copy classes  from the bin directory. -->
+			<fileset dir="bin" includes="**"/>
+
+			<!-- Copy classes and other files from required libraries and Jetty. -->
+			<zipfileset src="lib/jettyDeps.jar" excludes="META-INF/**"/>
+			
+			<!-- Copy classes from the daemon library jarfile. -->
+			<zipfileset src="lib/daemon-0.7.jar" excludes="META-INF/**"/>
+			
+			<!-- Include the webapp.
+			     However, exclude the slf4j jars, since Jetty will already have
+			     them on its classpath, and we don't want two copies. -->
+			<fileset
+				dir="."
+				includes="war/**"
+				excludes="**/slf4j*.jar,war/logs/**" />			
+
+			<!-- Include a Manifest specifying the Main-Class to start/control/shutdown the webapp. -->
+			<manifest>
+				<attribute name="Main-Class" value="edu.ycp.cs496.asteroids.main.AsteroidsDaemonController" />
+			</manifest>
+		</jar>
+	</target>
+	
+    <target name="clean">
+        <delete quiet="true">
+        	<fileset dir="bin" includes="**"/>
+        </delete>
+        <delete quiet="true">
+        	<fileset dir="war/WEB-INF/classes" includes="**"/>
+        </delete>
+    	<delete quiet="true" file="${jarname}"/>
+    </target>
+</project>
